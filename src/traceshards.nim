@@ -9,6 +9,7 @@ type
     RejectedLine* = object
         lineNumber*: int
         raw*: string
+        reason*: string
 
     ParseReport* = object  
         entries*: seq[LogEntry]
@@ -51,9 +52,13 @@ proc parseLogLine*(line: string): LogEntry =
     result.level = extractLevel(line)
 
     if result.level == "UNKNOWN":
-        result.message = parts[2..^1].join(" ")
+        let messageParts = line.splitWhitespace(maxsplit = 2)
+        result.message = messageParts[2]
     else:
-        result.message = parts[3..^1].join(" ")
+        let messageParts = line.splitWhitespace(maxsplit = 3)
+
+        if messageParts.len > 3:
+            result.message = messageParts[3]
 
 proc parseLogFile*(filePath: string): seq[LogEntry] =
     result = @[]
@@ -78,8 +83,18 @@ proc parseLogFileWithDiagnostics*(filePath: string): ParseReport =
         if entry.timestamp.len > 0:
             result.entries.add(entry)
         else:
+            let reason =
+                if line.splitWhitespace().len < 3:
+                    "Incomplete log entry"
+                else:
+                    "Invalid timestamp"
+
             result.rejected.add(
-                RejectedLine(lineNumber: lineNumber, raw: line)
+                RejectedLine(
+                    lineNumber: lineNumber,
+                    raw: line,
+                    reason: reason
+                )
             )
 
 proc main() =

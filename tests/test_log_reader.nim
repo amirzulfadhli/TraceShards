@@ -91,3 +91,16 @@ suite "Log Reader":
         check report.rejected.len == 1
         check report.rejected[0].lineNumber == 2
         check report.rejected[0].raw == "INVALID_LOG"
+        check report.rejected[0].reason == "Incomplete log entry"
+
+    test "Explains invalid timestamp rejection":
+        let report = parseLogFileWithDiagnostics("samples/invalid_timestamp.log")
+
+        check report.rejected.len == 1
+        check report.rejected[0].reason == "Invalid timestamp"
+
+    test "Preserves spacing within log messages":
+        let line = "2026-11-23 10:00:02 ERROR Database  connection  lost"
+        let entry = parseLogLine(line)
+
+        check entry.message == "Database  connection  lost"
