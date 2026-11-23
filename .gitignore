@@ -1,0 +1,5 @@
+# Generated executables
+*.exe
+
+# Nim compiler cache
+nimcahce/
