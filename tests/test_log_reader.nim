@@ -59,3 +59,35 @@ suite "Log Reader":
         check entry.timestamp == "2026-11-23 10:00:02"
         check entry.level == "ERROR"
         check entry.message == ""
+
+    test "Parses multiple entries from a file":
+        let entries = parseLogFile("samples/demo.log")
+
+        check entries.len == 4
+        check entries[0].level == "INFO"
+        check entries[2].message == "Connection lost"
+
+    test "Skips malformed line when parsing a file":
+        let entries = parseLogFile("samples/malformed.log")
+
+        check entries.len == 2
+
+    test "Rejects invalid timestamp text":
+        let line = "banana potato ERROR Connection lost"
+        let entry = parseLogLine(line)
+
+        check entry.timestamp == ""
+
+    test "Rejects impossible calendar dates":
+        let line = "2026-02-30 10:00:02 ERROR Connection lost"
+        let entry = parseLogLine(line)
+
+        check entry.timestamp == ""
+
+    test "Preserves rejected log lines":
+        let report = parseLogFileWithDiagnostics("samples/malformed.log")
+
+        check report.entries.len == 2
+        check report.rejected.len == 1
+        check report.rejected[0].lineNumber == 2
+        check report.rejected[0].raw == "INVALID_LOG"
