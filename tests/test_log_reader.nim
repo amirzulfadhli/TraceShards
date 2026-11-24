@@ -104,3 +104,153 @@ suite "Log Reader":
         let entry = parseLogLine(line)
 
         check entry.message == "Database  connection  lost"
+
+    test "Parses ISO 8601 UTC log entries":
+        let line = "2026-11-23T10:00:02Z ERROR Connection lost"
+        let entry = parseLogLine(line)
+
+        check entry.timestamp == "2026-11-23T10:00:02Z"
+        check entry.level == "ERROR"
+        check entry.message == "Connection lost"
+
+    test "Parses iSO log with a single word message":
+        let line = "2026-11-23T10:00:02Z Connected"
+        let entry = parseLogLine(line)
+
+        check entry.timestamp == "2026-11-23T10:00:02Z"
+        check entry.level == "UNKNOWN"
+        check entry.message == "Connected"
+
+    test "Handles ISO severity without a message":
+        let line = "2026-11-23T10:00:02Z ERROR"
+        let entry = parseLogLine(line)
+
+        check entry. timestamp == "2026-11-23T10:00:02Z"
+        check entry.level == "ERROR"
+        check entry.message == ""
+
+    test "Rejects impossible ISO UTC dates":
+        let line = "2026-02-30T10:00:02Z ERROR Conenction lost"
+        let entry = parseLogLine(line)
+
+        check entry.timestamp == ""
+
+    test "Parses ISO timestamp with timezone offsets":
+        let line = "2026-11-23T10:00:02+08:00 ERROR Connection lost"
+        let entry = parseLogLine(line)
+
+        check entry.timestamp == "2026-11-23T10:00:02+08:00"
+        check entry.level == "ERROR"
+        check entry.message == "Connection lost"
+
+    test "Rejects invalid timezone offsets":
+        let line = "2026-11-23T10:00:02+08:99 ERROR Connection lost"
+        let entry = parseLogLine(line)
+
+        check entry.timestamp == ""
+
+    test "Rejects invalid timezone offset hours":
+        let line = "2026-11-23T10:00:02+25:00 ERROR Connection lost"
+        let entry = parseLogLine(line)
+
+        check entry.timestamp == ""
+
+    test "Parses negative timezone offsets":
+        let line = "2026-11-23T10:00:02-05:30 WARN High memory usage"
+        let entry = parseLogLine(line)
+
+        check entry.timestamp == "2026-11-23T10:00:02-05:30"
+        check entry.level == "WARN"
+        check entry.message == "High memory usage"
+
+    test "Rejects timezone offsets without a colon":
+        let line = "2026-11-23T10:00:02+0800 ERROR Connection lost"
+        let entry = parseLogLine(line)
+
+        check entry.timestamp == ""
+
+    test "Rejects ISO timestamps without timezone":
+        let line = "2026-11-23T10:00:02 ERROR Connection lost"
+        let entry = parseLogLine(line)
+
+        check entry.timestamp == ""
+
+    test "Parses ISO timestamps with milliseconds":
+        let line = "2026-11-23T10:00:02.125Z ERROR Connection lost"
+        let entry = parseLogLine(line)
+
+        check entry.timestamp == "2026-11-23T10:00:02.125Z"
+        check entry.level == "ERROR"
+        check entry.message == "Connection lost"
+    
+    test "Parses milliseconds with timezone offsets":
+        let line = "2026-11-23T10:00:02.125+08:00 ERROR Connection lost"
+        let entry = parseLogLine(line)
+
+        check entry.timestamp == "2026-11-23T10:00:02.125+08:00"
+        check entry.level == "ERROR"
+        check entry.message == "Connection lost"
+
+    test "Counts log entries by severity":
+        let entries = @[
+            parseLogLine("2026-11-23T10:00:00Z INFO Server started"),
+            parseLogLine("2026-11-23T10:00:01Z ERROR Connection lost"),
+            parseLogLine("2026-11-23T10:00:02Z WARN Retrying"),
+            parseLogLine("2026-11-23T10:00:03Z ERROR Retry failed")
+        ]
+
+        check countEntriesByLevel(entries, "ERROR") == 2
+
+    test "Counts severity level case-insensitively":
+        let entries = @[
+            parseLogLine("2026-11-23T10:00:00Z ERROR Connection lost"),
+            parseLogLine("2026-11-23T10:00:01Z INFO Retrying"),
+            parseLogLine("2026-11-23T10:00:02Z ERROR Retry failed")
+        ]
+
+        check countEntriesByLevel(entries, "error") == 2
+
+    test "Filters log entries by severity":
+        let entries = @[
+            parseLogLine("2026-11-23T10:00:00Z INFO Server started"),
+            parseLogLine("2026-11-23T10:00:01Z ERROR Connection lost"),
+            parseLogLine("2026-11-23T10:00:02Z WARN Retrying connection"),
+            parseLogLine("2026-11-23T10:00:03Z ERROR Retry failed")
+        ]
+
+        let errors = filterEntriesByLevel(entries, "ERROR")
+
+        check errors.len == 2
+        check errors[0].message == "Connection lost"
+        check errors[1].message == "Retry failed"
+
+    test "Searches log messages case-insensitively":
+        let entries = @[
+            parseLogLine("2026-11-23T10:00:00Z ERROR Connection lost"),
+            parseLogLine("2026-11-23T10:00:01Z INFO Loading configuration"),
+            parseLogLine("2026-11-23T10:00:02Z INFO connection restored")
+        ]
+
+        let matches = searchEntriesByMessage(entries, "CONNECTION")
+
+        check matches.len == 2
+        check matches[0].message == "Connection lost"
+        check matches[1].message == "connection restored"
+
+    
+    test "Combines severity filtering with ketboard search":
+        let entries = @[
+            parseLogLine("2026-11-23T10:00:00Z ERROR Connection lost"),
+            parseLogLine("2026-11-23T10:00:01Z INFO Connection restored"),
+            parseLogLine("2026-11-23T10:00:02Z WARN Connection unstable"),
+            parseLogLine("2026-11-23T10:00:03Z ERROR Disk full"),
+            parseLogLine("2026-11-23T10:00:04Z ERROR Connection timeout")
+        ]
+
+        let errors = filterEntriesByLevel(entries, "ERROR")
+        let matches = searchEntriesByMessage(errors, "connection")
+
+        check matches.len == 2
+        check matches[0].message == "Connection lost"
+        check matches[1].message == "Connection timeout"
+
