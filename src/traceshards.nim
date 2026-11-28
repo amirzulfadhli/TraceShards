@@ -204,10 +204,15 @@ type
         keyword*: string
         hasGapOtion*: bool
         gapThreshold*: float
+        showHelp*: bool
 
 proc parseCliArguments*(args: seq[string]): CliOptions = 
     if args.len == 0:
         raise newException(ValueError, "Missing log filename")
+
+    if args.len == 1 and args[0] == "--help":
+        result.showHelp = true
+        return
 
     var gapCount = 0
 
@@ -275,6 +280,29 @@ proc main() =
     except ValueError as e:
         echo "Error: ", e.msg
         quit(1)
+
+    if options.showHelp:
+        echo "traceshards - Log Investigation Tool"
+        echo ""
+        echo "Usage:"
+        echo " traceshards <log-file> [severity] [keyword] [--gap seconds]"
+        echo ""
+        echo "Arguments:"
+        echo " log-file       Path to the log file"
+        echo " severity        Filter by severity (default: ERROR)"
+        echo " keyword         Search log message for a keyword"
+        echo ""
+        echo "Options:"
+        echo " --gap seconds   Detect gaps exceeding the threshold"
+        echo " --help         Display this help message"
+        echo ""
+        echo "Examples:"
+        echo " traceshards app.log"
+        echo " traceshards app.log WARN"
+        echo " traceshards app.log ERROR connection"
+        echo " traceshards app.log ERROR connection --gap 2"
+        quit(0) 
+        
 
     let hasGapOtion = options.hasGapOtion
 

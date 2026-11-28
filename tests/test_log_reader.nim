@@ -499,3 +499,8 @@ suite "Log Reader":
         check options.keyword == ""
         check options.hasGapOtion == false
         check options.gapThreshold == 0.0
+
+    test "Parses help option":
+        let option =parseCliArguments(@["--help"])
+
+        check option.showHelp == true
